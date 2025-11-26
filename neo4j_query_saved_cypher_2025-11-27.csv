@@ -1,0 +1,63 @@
+name,description,query,id,parentId,isFolder
+New Folder,,,0,,true
+Untitled Cypher,,"CREATE (user:User {name: ""Читатель""})
+CREATE (reason:Reason {name: ""Хочет почитать, но не знает что""})
+CREATE (user)-[:HAS_STATE]->(reason);
+CREATE (step1:Step {name: ""Открыл сервис Литрес""})
+CREATE (step2:Step {name: ""Получить рекомендацию""})
+CREATE (step3:Step {name: ""Найдена книга""})
+CREATE (step4:Step {name: ""Чтение""})
+
+CREATE (reason)-[:IS_REASON_FOR]->(step1)
+CREATE (step1)-[:PRECEDES]->(step2)
+CREATE (step2)-[:PRECEDES]->(step3)
+CREATE (step3)-[:PRECEDES]->(step4)
+CREATE (step4)-[:IS_TARGET_ACTION_FOR]->(reason);
+
+CREATE (screenRec:Screen:Interface {name: ""Экран ленты рекомендаций"", codename: ""recommendationsScreen""})
+CREATE (buttonBook:Button:Interface {name: ""Картинка с книгой и названием"", codename: ""bookCover""})
+CREATE (screenReading:Screen:Interface {name: ""Экран чтения"", codename: ""readingScreen""})
+CREATE (buttonRead:Button:Interface {name: ""Кнопка 'Читать'"", codename: ""readButton""})
+
+CREATE (buttonBook)-[:PART_OF]->(screenRec)
+CREATE (buttonRead)-[:PART_OF]->(screenReading);
+
+CREATE (actionView:View:Action {name: ""Появление рекомендаций""})
+CREATE (actionClick:Click:Action {name: ""Пользователь нажимает на книгу""})
+CREATE (actionScroll:Scroll:Action {name: ""Пользователь пролистывает""})
+CREATE (actionRead:Click:Action {name: ""Начать чтение""})
+
+CREATE (step1)-[:MATERIALIZES_IN]->(actionView)
+CREATE (step2)-[:MATERIALIZES_IN]->(actionClick)
+CREATE (step4)-[:MATERIALIZES_IN]->(actionRead)
+
+CREATE (actionView)-[:PRECEDES]->(actionScroll)
+CREATE (actionView)-[:PRECEDES]->(actionClick)
+CREATE (actionClick)-[:PRECEDES]->(actionRead);
+
+CREATE (actionView)-[:INTERACTS_WITH]->(screenRec)
+CREATE (actionScroll)-[:INTERACTS_WITH]->(screenRec)
+CREATE (actionClick)-[:INTERACTS_WITH]->(buttonBook)
+CREATE (actionRead)-[:INTERACTS_WITH]->(buttonRead);
+
+MATCH (action)-[:INTERACTS_WITH]->(interface)
+CREATE (event:Event {name: interface.codename + 
+  CASE 
+    WHEN 'View' IN labels(action) THEN '_view'
+    WHEN 'Click' IN labels(action) THEN '_click'
+    WHEN 'Scroll' IN labels(action) THEN '_scroll'
+  END
+})
+CREATE (action)-[:TRIGGERS]->(event)
+RETURN action.name, interface.codename, event.name;
+
+MATCH (action)-[:INTERACTS_WITH]->(interface)
+OPTIONAL MATCH (action)-[:TRIGGERS]->(event)
+RETURN 
+  action.name AS action,
+  interface.codename AS interface,
+  event.name AS event,
+  CASE WHEN event IS NULL THEN 'MISSING' ELSE 'OK' END AS status;
+
+MATCH path = (user:User)-[*]->(event:Event)
+RETURN path;",1,0,false
